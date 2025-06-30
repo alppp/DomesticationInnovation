@@ -9,6 +9,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 import java.util.*;
+import com.github.alexthe668.domesticationinnovation.DomesticationMod;
 
 public class DIWorldData extends SavedData {
 
@@ -77,7 +78,21 @@ public class DIWorldData extends SavedData {
                 CompoundTag tag = new CompoundTag();
                 tag.putUUID("PetUUID", request.getPetUUID());
                 tag.putString("EntityType", request.getEntityTypeLoc());
-                tag.putUUID("OwnerUUID", request.getOwnerUUID());
+                
+                // Check for null OwnerUUID before saving
+                UUID ownerUUID = request.getOwnerUUID();
+                if (ownerUUID != null) {
+                    tag.putUUID("OwnerUUID", ownerUUID);
+                } else {
+                    DomesticationMod.LOGGER.warn("Skipping null OwnerUUID for LanternRequest - Pet: {} ({}), Type: {}, Position: {}", 
+                        request.getNametag(), 
+                        request.getPetUUID(), 
+                        request.getEntityTypeLoc(), 
+                        request.getChunkPosition());
+                    // Skip this entry to prevent crashes
+                    continue;
+                }
+                
                 tag.putLong("Timestamp", request.getTimestamp());
                 tag.putString("EntityNametag", request.getNametag());
                 tag.putInt("X", request.getChunkPosition().getX());
@@ -97,6 +112,7 @@ public class DIWorldData extends SavedData {
     public void removeRespawnRequest(RespawnRequest request){
         this.respawnRequestList.remove(request);
     }
+    
     public List<RespawnRequest> getRespawnRequestsFor(Level level, BlockPos pos){
         List<RespawnRequest> list = new ArrayList<>();
         String dimension = level.dimension().toString();
@@ -109,6 +125,13 @@ public class DIWorldData extends SavedData {
     }
 
     public void addLanternRequest(LanternRequest request){
+        // Validate before adding
+        if (request.getOwnerUUID() == null) {
+            DomesticationMod.LOGGER.warn("Attempted to add LanternRequest with null OwnerUUID - Pet: {} ({}), Type: {}", 
+                request.getNametag(), 
+                request.getPetUUID(), 
+                request.getEntityTypeLoc());
+        }
         this.lanternRequestList.add(request);
     }
 
@@ -122,8 +145,13 @@ public class DIWorldData extends SavedData {
 
     public List<LanternRequest> getLanternRequestsFor(UUID uuid){
         List<LanternRequest> list = new ArrayList<>();
+        if (uuid == null) {
+            DomesticationMod.LOGGER.warn("getLanternRequestsFor called with null UUID");
+            return list;
+        }
         for(LanternRequest request : this.lanternRequestList){
-            if(uuid.equals(request.getOwnerUUID())){
+            UUID ownerUUID = request.getOwnerUUID();
+            if(ownerUUID != null && uuid.equals(ownerUUID)){
                 list.add(request);
             }
         }
